@@ -950,6 +950,8 @@ pub struct UiConfig {
     pub mobile_width_threshold: u16,
     /// Capture mouse input for Herdr's mouse UI. Default: true.
     pub mouse_capture: bool,
+    /// Switch tabs with the mouse wheel over the tab bar. Default: true.
+    pub tab_bar_scroll_switch: bool,
     /// Copy text selected with the mouse. Default: true.
     pub copy_on_select: bool,
     /// Host cursor policy. Default: auto.
@@ -1202,6 +1204,7 @@ impl Default for UiConfig {
             sidebar_collapsed_mode: SidebarCollapsedModeConfig::Compact,
             mobile_width_threshold: DEFAULT_MOBILE_WIDTH_THRESHOLD,
             mouse_capture: true,
+            tab_bar_scroll_switch: true,
             copy_on_select: true,
             host_cursor: HostCursorModeConfig::Auto,
             right_click_passthrough_modifier: RightClickPassthroughModifierConfig::default(),

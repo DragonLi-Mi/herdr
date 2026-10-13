@@ -1121,6 +1121,122 @@ fn tab_wheel_switches_tabs_without_changing_overflow_scroll() {
 }
 
 #[test]
+fn tab_wheel_disabled_preserves_clicks_and_pane_scrolling() {
+    let config: Config = toml::from_str("[ui]\ntab_bar_scroll_switch = false\n").unwrap();
+    let mut projected = snapshot();
+    for index in 2..=12 {
+        let mut tab = projected.tabs[0].clone();
+        tab.tab_id = format!("tab_{index}");
+        tab.number = index;
+        tab.label = index.to_string();
+        tab.focused = false;
+        projected.tabs.push(tab);
+    }
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&config));
+    state.set_snapshot(Box::new(projected));
+    state.set_pane_surface(surface());
+    state.compose(106, 20).expect("overflowing tab bar");
+
+    let mut targets = state
+        .hits
+        .tabs
+        .iter()
+        .map(|(rect, _)| *rect)
+        .collect::<Vec<_>>();
+    targets.extend([
+        state.hits.tab_scroll_left,
+        state.hits.tab_scroll_right,
+        state.hits.new_tab,
+    ]);
+    assert!(targets.iter().all(|rect| !rect.is_empty()));
+    for target in targets {
+        for kind in [MouseEventKind::ScrollUp, MouseEventKind::ScrollDown] {
+            let outcome = state.handle_raw_events(vec![RawInputEvent::Mouse(MouseEvent {
+                kind,
+                column: target.x,
+                row: target.y,
+                modifiers: KeyModifiers::empty(),
+            })]);
+            assert!(outcome.actions.is_empty());
+            assert!(outcome.requests.is_empty());
+            assert_eq!(state.tab_scroll, 0);
+        }
+    }
+
+    let second = state.hits.tabs[1].0;
+    for kind in [
+        MouseEventKind::Down(MouseButton::Left),
+        MouseEventKind::Up(MouseButton::Left),
+    ] {
+        let outcome = state.handle_raw_events(vec![RawInputEvent::Mouse(MouseEvent {
+            kind,
+            column: second.x + 1,
+            row: second.y,
+            modifiers: KeyModifiers::empty(),
+        })]);
+        if matches!(kind, MouseEventKind::Up(_)) {
+            assert!(matches!(
+                &outcome.actions[..],
+                [ClientShellAction::Endpoint { request, .. }]
+                    if matches!(&request.method,
+                        crate::api::schema::Method::TabFocus(target) if target.tab_id == "tab_2")
+            ));
+        }
+    }
+
+    let pane = state.hits.panes[0].clone();
+    for kind in [MouseEventKind::ScrollUp, MouseEventKind::ScrollDown] {
+        let outcome = state.handle_raw_events(vec![RawInputEvent::Mouse(MouseEvent {
+            kind,
+            column: pane.inner_rect.x,
+            row: pane.inner_rect.y,
+            modifiers: KeyModifiers::empty(),
+        })]);
+        let expected_kind = crate::protocol::ClientMouseKind::from_crossterm(kind).unwrap();
+        let [ClientMessage::ClientShellPaneInput { pane_id, events }] = &outcome.requests[..]
+        else {
+            panic!("expected pane wheel input");
+        };
+        assert_eq!(pane_id, "pane_1");
+        assert!(matches!(
+            &events[..],
+            [ClientPaneInputEvent::Mouse { kind, lines: 3, .. }] if *kind == expected_kind
+        ));
+    }
+}
+
+#[test]
+fn tab_wheel_switch_preference_reloads_without_disabling_mouse_capture() {
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.set_snapshot(Box::new(snapshot()));
+    state.set_pane_surface(surface());
+    state.compose(106, 20).expect("tab bar");
+    let tab = state.hits.tabs[0].0;
+    let config: Config = toml::from_str("[ui]\ntab_bar_scroll_switch = false\n").unwrap();
+
+    for (config, invalid_sections, switches) in [
+        (&config, vec!["ui".to_owned()], true),
+        (&config, vec![], false),
+        (&Config::default(), vec![], true),
+    ] {
+        let diagnostics = state
+            .config
+            .apply_live_config(config, &[], &invalid_sections);
+        assert!(diagnostics.is_empty());
+        assert!(state.config.mouse_capture);
+        for kind in [MouseEventKind::ScrollUp, MouseEventKind::ScrollDown] {
+            let outcome = state.handle_raw_events(vec![RawInputEvent::Mouse(MouseEvent {
+                kind,
+                column: tab.x,
+                row: tab.y,
+                modifiers: KeyModifiers::empty(),
+            })]);
+            assert_eq!(!outcome.actions.is_empty(), switches);
+        }
+    }
+}
+
+#[test]
 fn context_menu_keyboard_and_outside_click_are_client_owned() {
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
     state.set_snapshot(Box::new(snapshot()));

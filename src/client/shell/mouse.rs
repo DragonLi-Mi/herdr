@@ -1845,10 +1845,14 @@ impl ClientShellState {
                     || super::contains(self.hits.tab_scroll_right, point)
                     || super::contains(self.hits.new_tab, point) =>
             {
-                self.record_binding(
-                    crate::input::KeybindMatch::Action(crate::input::KeybindAction::PreviousTab),
-                    outcome,
-                );
+                if self.config.tab_bar_scroll_switch {
+                    self.record_binding(
+                        crate::input::KeybindMatch::Action(
+                            crate::input::KeybindAction::PreviousTab,
+                        ),
+                        outcome,
+                    );
+                }
             }
             MouseEventKind::ScrollDown
                 if self
@@ -1860,10 +1864,12 @@ impl ClientShellState {
                     || super::contains(self.hits.tab_scroll_right, point)
                     || super::contains(self.hits.new_tab, point) =>
             {
-                self.record_binding(
-                    crate::input::KeybindMatch::Action(crate::input::KeybindAction::NextTab),
-                    outcome,
-                );
+                if self.config.tab_bar_scroll_switch {
+                    self.record_binding(
+                        crate::input::KeybindMatch::Action(crate::input::KeybindAction::NextTab),
+                        outcome,
+                    );
+                }
             }
             MouseEventKind::ScrollUp if super::contains(self.hits.agent_body, point) => {
                 let next = self.agent_scroll.saturating_sub(1);

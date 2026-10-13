@@ -906,6 +906,12 @@
           "description": "Capture mouse input for Herdr's mouse UI."
         },
         {
+          "key": "ui.tab_bar_scroll_switch",
+          "type": "boolean",
+          "default": "true",
+          "description": "Switch tabs with the mouse wheel over the tab bar. Disable to retain tab clicks and pane scrolling without wheel-based tab switching."
+        },
+        {
           "key": "ui.copy_on_select",
           "type": "boolean",
           "default": "true",
