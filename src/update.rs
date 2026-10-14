@@ -2107,6 +2107,11 @@ fn homebrew_cellar_keg_root(path: &Path) -> Option<PathBuf> {
 
 /// Manual self-update command (`herdr update`).
 pub fn self_update(options: SelfUpdateOptions) -> Result<Version, String> {
+    if crate::build_info::is_custom() {
+        return Err(
+            "official self-update is disabled for this custom build to preserve local patches; download a reviewed release from https://github.com/DragonLi-Mi/herdr/releases and run `herdr-custom-update.ps1 -ArchivePath <downloaded-custom-release.zip>`".into(),
+        );
+    }
     let channel = UpdateChannel::configured();
 
     if is_homebrew_managed_install() {
@@ -2346,6 +2351,10 @@ fn print_outdated_integration_notice_with_updated_binary(updated_exe: &Path) {
 /// Background update check: only surface availability and release notes.
 /// Runs in a background thread at startup.
 pub fn auto_update(events: tokio::sync::mpsc::Sender<crate::events::AppEvent>) {
+    if crate::build_info::is_custom() {
+        tracing::info!("custom build: updates are managed through DragonLi-Mi/herdr releases");
+        return;
+    }
     crate::logging::update_check_started();
     if let Ok(version) = env::var(FAKE_UPDATE_VERSION_ENV) {
         let version = version.trim();
@@ -2499,6 +2508,36 @@ fn platform_target() -> (&'static str, &'static str) {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod custom_tests {
+    use super::*;
+
+    #[test]
+    fn custom_build_rejects_official_update_before_installation_or_network_access() {
+        if !crate::build_info::is_custom() {
+            return;
+        }
+        for live_handoff in [false, true] {
+            let error = self_update(SelfUpdateOptions { live_handoff }).unwrap_err();
+            assert!(error.contains("official self-update is disabled"));
+            assert!(error.contains("DragonLi-Mi/herdr/releases"));
+        }
+    }
+
+    #[test]
+    fn custom_build_does_not_start_background_update_work() {
+        if !crate::build_info::is_custom() {
+            return;
+        }
+        let (sender, mut receiver) = tokio::sync::mpsc::channel(1);
+        auto_update(sender);
+        assert!(matches!(
+            receiver.try_recv(),
+            Err(tokio::sync::mpsc::error::TryRecvError::Disconnected)
+        ));
+    }
+}
 
 #[cfg(all(test, unix))]
 mod tests {

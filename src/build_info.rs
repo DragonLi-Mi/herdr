@@ -3,11 +3,11 @@
 pub const BASE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn channel() -> &'static str {
-    non_empty(option_env!("HERDR_BUILD_CHANNEL")).unwrap_or("stable")
+    non_empty(option_env!("HERDR_BUILD_CHANNEL")).unwrap_or("custom")
 }
 
 pub fn build_id() -> Option<&'static str> {
-    non_empty(option_env!("HERDR_BUILD_ID"))
+    non_empty(option_env!("HERDR_BUILD_ID")).or_else(|| is_custom().then_some("1"))
 }
 
 pub fn version() -> String {
@@ -22,6 +22,10 @@ pub fn version() -> String {
 
 pub fn is_preview() -> bool {
     channel() == "preview"
+}
+
+pub fn is_custom() -> bool {
+    channel() == "custom"
 }
 
 fn non_empty(value: Option<&'static str>) -> Option<&'static str> {
