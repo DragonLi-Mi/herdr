@@ -1,7 +1,7 @@
 # Custom Herdr maintenance
 
 This fork follows upstream stable releases, not the moving upstream master.
-The current base is **v0.9.4**, and the custom build is **0.9.4-custom.1**.
+The current base is **v0.9.5**, and the custom build is **0.9.5-custom.1**.
 Do not use upstream release recipes or modify upstream distribution manifests.
 
 ## Branches and patches
